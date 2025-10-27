@@ -27,3 +27,6 @@ Dockerfile.bak
 logs/
 tmp/
 mlruns/  # MLflow本地日志（可选：若需共享可配置远程跟踪）
+
+echo "mlruns/" >> .gitignore
+echo "ml/mlruns/" >> .gitignore

@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/32583/Desktop/APP/mlruns/820475391756355105/fdb5e83801c440c1ad67d18e49d68def/artifacts
+end_time: 1761562703430
+entry_point_name: ''
+experiment_id: '820475391756355105'
+lifecycle_stage: active
+run_id: fdb5e83801c440c1ad67d18e49d68def
+run_name: 实验1：基线模型（默认超参数）_2025-10-27 18:58:19
+run_uuid: fdb5e83801c440c1ad67d18e49d68def
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761562699756
+status: 3
+tags: []
+user_id: '32583'

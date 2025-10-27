@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/32583/Desktop/APP/mlruns/820475391756355105/cbae69c773874c6e85fef5cb6637777c/artifacts
+end_time: 1761571682809
+entry_point_name: ''
+experiment_id: '820475391756355105'
+lifecycle_stage: active
+run_id: cbae69c773874c6e85fef5cb6637777c
+run_name: 实验2：改进模型（C=0.1，强正则化）_2025-10-27 21:27:56
+run_uuid: cbae69c773874c6e85fef5cb6637777c
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761571676622
+status: 3
+tags: []
+user_id: '32583'

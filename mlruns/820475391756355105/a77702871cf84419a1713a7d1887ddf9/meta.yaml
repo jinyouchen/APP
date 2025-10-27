@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/32583/Desktop/APP/mlruns/820475391756355105/a77702871cf84419a1713a7d1887ddf9/artifacts
+end_time: 1761571676550
+entry_point_name: ''
+experiment_id: '820475391756355105'
+lifecycle_stage: active
+run_id: a77702871cf84419a1713a7d1887ddf9
+run_name: 实验1：基线模型（C=100，弱正则化）_2025-10-27 21:27:48
+run_uuid: a77702871cf84419a1713a7d1887ddf9
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761571668157
+status: 3
+tags: []
+user_id: '32583'

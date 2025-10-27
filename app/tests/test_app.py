@@ -1,6 +1,19 @@
+# test_app.py
+import sys
+import os
+from pathlib import Path
+
+# 1. 获取当前测试文件（test_app.py）的绝对路径
+current_file_path = Path(__file__).resolve()
+# 2. 从 test_app.py 向上跳转至项目根目录（假设项目结构为：项目根目录/tests/test_app.py）
+project_root = current_file_path.parent.parent  # 上两级目录（tests/的父目录即项目根目录）
+# 3. 将项目根目录加入 Python 搜索路径
+sys.path.insert(0, str(project_root))
+
+# 现在可以正常导入 app 模块了
+from main import app  # 注意：根据实际目录结构调整导入路径
 import pytest
 import json
-from app.main import app
 
 client = app.test_client()
 
@@ -23,4 +36,4 @@ def test_outlier_input():
     assert response.status_code == 200
     assert response.json["status"] == "success"
 
-# 运行测试：CMD执行 `pytest app/tests/test_app.py -v` 需全部通过
+# 运行测试：CMD执行 `pytest tests/test_app.py -v` 需全部通过

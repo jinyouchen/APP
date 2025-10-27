@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/32583/Desktop/APP/mlruns/820475391756355105/e3ccf7b82f664b76b5cf7d87e6b8c29e/artifacts
+end_time: 1761580435188
+entry_point_name: ''
+experiment_id: '820475391756355105'
+lifecycle_stage: active
+run_id: e3ccf7b82f664b76b5cf7d87e6b8c29e
+run_name: 实验3：参数搜索（C=10.0）_2025-10-27 23:53:49
+run_uuid: e3ccf7b82f664b76b5cf7d87e6b8c29e
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761580429040
+status: 3
+tags: []
+user_id: '32583'

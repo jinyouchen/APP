@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/32583/Desktop/APP/mlruns/820475391756355105/b62dbab8935348529abfbbf031c4c852/artifacts
+end_time: 1761566511441
+entry_point_name: ''
+experiment_id: '820475391756355105'
+lifecycle_stage: active
+run_id: b62dbab8935348529abfbbf031c4c852
+run_name: 实验2：改进模型（调优超参数）_2025-10-27 20:01:48
+run_uuid: b62dbab8935348529abfbbf031c4c852
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761566508486
+status: 3
+tags: []
+user_id: '32583'

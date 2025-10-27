@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/32583/Desktop/APP/mlruns/820475391756355105/2c20866a1255467c8e3c45483d0b9c00/artifacts
+end_time: 1761580417198
+entry_point_name: ''
+experiment_id: '820475391756355105'
+lifecycle_stage: active
+run_id: 2c20866a1255467c8e3c45483d0b9c00
+run_name: 实验2：强正则化模型（C=0.1）_2025-10-27 23:53:30
+run_uuid: 2c20866a1255467c8e3c45483d0b9c00
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761580410962
+status: 3
+tags: []
+user_id: '32583'

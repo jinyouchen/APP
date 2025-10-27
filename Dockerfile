@@ -1,18 +1,26 @@
-# 基础镜像：Python Slim（减少镜像体积，符合1-12“slim Dockerfile”要求）
-FROM python:3.11-slim
+# 基础镜像：Python 3.10（适配所有依赖版本）
+FROM python:3.10-slim
 
-# 设置工作目录
+# 设置工作目录（容器内项目根目录）
 WORKDIR /app
 
-# 复制依赖文件（利用Docker缓存，减少构建时间）
+# 安装系统依赖：git（train.py用gitpython）、curl（检查服务状态）、gcc（部分Python库编译）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*  # 清理缓存，减小镜像体积
+
+# 复制依赖清单并安装Python库（--no-cache-dir避免缓存，减小体积）
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 复制项目代码（仅复制必要文件，依赖.dockerignore排除冗余）
+# 复制项目所有文件到容器内（确保.dockerignore排除冗余文件，如venv、__pycache__）
 COPY . .
 
-# 暴露App端口（与app/main.py一致）
-EXPOSE 5000
+# 给启动脚本执行权限
+RUN chmod +x /app/entrypoint.sh
 
-# 启动命令（生产环境可替换为Gunicorn，此处示例用Flask）
-CMD ["python", "app/main.py"]
+# 容器启动入口（执行全流程脚本）
+ENTRYPOINT ["/app/entrypoint.sh"]
+

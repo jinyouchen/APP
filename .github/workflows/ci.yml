@@ -1,76 +1,118 @@
-name: ML App CI/CD
-# 触发条件：PR到保护分支（dev/staging/main）、合并到staging/main（符合1-17、1-23）
+name: ML App CI/CD Pipeline
+
+# 触发条件：PR到protected分支（dev/staging/main）、合并到staging/main
 on:
   pull_request:
-    branches: [dev, staging, main]  # PR到这些分支触发CI（符合1-17）
+    branches: [ dev, staging, main ]
   push:
-    branches: [staging, main]       # 合并到这些分支触发CD（符合1-23）
+    branches: [ staging, main ]
+
+# 环境变量（可通过GitHub Secrets配置）
+env:
+  DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+  DAGSHUB_USER: ${{ secrets.DAGSHUB_USER }}
+  DAGSHUB_REPO: ${{ secrets.DAGSHUB_REPO }}
 
 jobs:
-  # 任务1：代码Lint（符合1-19要求）
-  lint:
+  # 任务1：代码检查（Lint + 静态分析）
+  code-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: 配置Python
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: 安装依赖
-        run: pip install -r requirements.txt
-      - name: 运行Black（格式检查）
-        run: black --check .  # 不自动修复，仅检查（符合1-19）
-      - name: 运行Ruff（静态分析）
-        run: ruff check .     # 检查代码规范（符合1-19）
+          python-version: "3.9"
+          cache: "pip"  # 缓存pip依赖
 
-  # 任务2：运行测试（符合1-18、1-6要求）
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Black (代码格式化检查)
+        run: black --check .  # --check仅检查不修改，失败则CI报错
+
+      - name: Run Ruff (静态分析)
+        run: ruff check .  # 检查语法错误、未使用导入等
+
+  # 任务2：运行测试套件
   test:
     runs-on: ubuntu-latest
-    needs: lint  # Lint通过才运行测试（符合1-21“CI失败则PR不能合并”）
+    needs: code-check  # 依赖code-check任务完成
     steps:
-      - uses: actions/checkout@v4
-      - name: 配置Python
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: 安装依赖
-        run: pip install -r requirements.txt
-      - name: 运行测试（覆盖3个用例）
-        run: pytest app/tests/test_app.py -v  # 符合1-18“运行完整测试套件”
+          python-version: "3.9"
+          cache: "pip"
 
-  # 任务3：构建Docker镜像（符合1-20、1-28至1-29要求）
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Login to Dagshub (拉取DVC数据)
+        run: |
+          dagshub login --token $DAGSHUB_TOKEN
+
+      - name: Pull DVC data (v2清洗后数据，用于测试)
+        run: |
+          dvc remote add -d dagshub_remote https://dagshub.com/$DAGSHUB_USER/$DAGSHUB_REPO.git
+          dvc pull data/processed.dvc  # 拉取测试所需数据
+
+      - name: Run pytest (执行所有测试用例)
+        run: pytest app/tests/test_app.py -v  # 运行测试，失败则CI报错
+
+  # 任务3：构建Docker镜像（PR时验证构建，合并时构建环境镜像）
   build-docker:
     runs-on: ubuntu-latest
-    needs: test  # 测试通过才构建（符合1-21）
+    needs: test  # 依赖test任务通过
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # 步骤1：根据分支设置环境（staging/prod，符合1-28至1-29）
-      - name: 设置环境变量
-        id: set-env
-        run: |
-          if [ "${{ github.ref }}" = "refs/heads/staging" ]; then
-            echo "ENV=staging" >> $GITHUB_ENV
-          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "ENV=prod" >> $GITHUB_ENV
-          else
-            echo "ENV=test" >> $GITHUB_ENV  # PR时用测试环境
-          fi
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      # 步骤2：创建.env文件（用GitHub Secrets，符合1-28至1-29）
-      - name: 生成环境配置文件
-        run: |
-          # 从Secrets注入对应环境的变量（需在GitHub设置Secrets）
-          echo "MODEL_PATH=${{ secrets[format('{0}_MODEL_PATH', env.ENV)] }}" >> .env
-          echo "PORT=${{ secrets[format('{0}_PORT', env.ENV)] }}" >> .env
+      # 步骤1：PR时仅验证镜像构建（不推送）
+      - name: Build Docker image (PR validation)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false  # 不推送
+          tags: ml-app:pr-${{ github.event.pull_request.number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      # 步骤3：构建Docker镜像（符合1-20“确保构建成功”）
-      - name: 构建Docker镜像
-        run: |
-          docker build -t ml-app:${{ env.ENV }}-${{ github.sha }} .
+      # 步骤2：合并到staging分支 → 构建staging环境镜像
+      - name: Build & Tag Staging Docker image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false  # 说明书要求无需部署，仅构建；如需推送，可配置Docker Hub Secrets
+          tags: ml-app:staging-${{ github.sha[:8] }}  # 用Git Commit前8位打标签
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            ENV=staging  # 传递staging环境变量
 
-      # 步骤4：合并到staging/main时标记镜像（符合1-28至1-29）
-      - name: 标记环境镜像
-        if: github.event_name == 'push'  # 仅合并时执行
-        run: |
-          docker tag ml-app:${{ env.ENV }}-${{ github.sha }} ml-app:${{ env.ENV }}
+      # 步骤3：合并到main分支 → 构建production环境镜像
+      - name: Build & Tag Production Docker image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false  # 如需推送，配置Docker Hub Secrets并设push=true
+          tags: ml-app:prod-${{ github.sha[:8] }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            ENV=production  # 传递production环境变量
