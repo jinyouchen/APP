@@ -1,0 +1,76 @@
+name: ML App CI/CD
+# 触发条件：PR到保护分支（dev/staging/main）、合并到staging/main（符合1-17、1-23）
+on:
+  pull_request:
+    branches: [dev, staging, main]  # PR到这些分支触发CI（符合1-17）
+  push:
+    branches: [staging, main]       # 合并到这些分支触发CD（符合1-23）
+
+jobs:
+  # 任务1：代码Lint（符合1-19要求）
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 配置Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+      - name: 运行Black（格式检查）
+        run: black --check .  # 不自动修复，仅检查（符合1-19）
+      - name: 运行Ruff（静态分析）
+        run: ruff check .     # 检查代码规范（符合1-19）
+
+  # 任务2：运行测试（符合1-18、1-6要求）
+  test:
+    runs-on: ubuntu-latest
+    needs: lint  # Lint通过才运行测试（符合1-21“CI失败则PR不能合并”）
+    steps:
+      - uses: actions/checkout@v4
+      - name: 配置Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+      - name: 运行测试（覆盖3个用例）
+        run: pytest app/tests/test_app.py -v  # 符合1-18“运行完整测试套件”
+
+  # 任务3：构建Docker镜像（符合1-20、1-28至1-29要求）
+  build-docker:
+    runs-on: ubuntu-latest
+    needs: test  # 测试通过才构建（符合1-21）
+    steps:
+      - uses: actions/checkout@v4
+
+      # 步骤1：根据分支设置环境（staging/prod，符合1-28至1-29）
+      - name: 设置环境变量
+        id: set-env
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/staging" ]; then
+            echo "ENV=staging" >> $GITHUB_ENV
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "ENV=prod" >> $GITHUB_ENV
+          else
+            echo "ENV=test" >> $GITHUB_ENV  # PR时用测试环境
+          fi
+
+      # 步骤2：创建.env文件（用GitHub Secrets，符合1-28至1-29）
+      - name: 生成环境配置文件
+        run: |
+          # 从Secrets注入对应环境的变量（需在GitHub设置Secrets）
+          echo "MODEL_PATH=${{ secrets[format('{0}_MODEL_PATH', env.ENV)] }}" >> .env
+          echo "PORT=${{ secrets[format('{0}_PORT', env.ENV)] }}" >> .env
+
+      # 步骤3：构建Docker镜像（符合1-20“确保构建成功”）
+      - name: 构建Docker镜像
+        run: |
+          docker build -t ml-app:${{ env.ENV }}-${{ github.sha }} .
+
+      # 步骤4：合并到staging/main时标记镜像（符合1-28至1-29）
+      - name: 标记环境镜像
+        if: github.event_name == 'push'  # 仅合并时执行
+        run: |
+          docker tag ml-app:${{ env.ENV }}-${{ github.sha }} ml-app:${{ env.ENV }}
