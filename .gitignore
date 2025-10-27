@@ -1,4 +1,3 @@
-"""
 # Python相关
 venv/
 __pycache__/
@@ -7,10 +6,12 @@ __pycache__/
 *.pyd
 .ipynb_checkpoints/
 
-# 数据相关（DVC管理，不提交原始数据）
-data/
-!data.dvc  :: 保留DVC指针文件
-.dvc/cache/  :: DVC缓存不提交
+# 数据相关（DVC管理，不提交原始数据，但保留 .dvc 元文件）
+data/*  # 忽略 data 目录下的所有内容（原始数据）
+!data/*.dvc  # 例外：不忽略 data 目录下的 .dvc 文件（如 data/raw.dvc）
+!data/  # 确保 data 目录本身不被完全忽略（否则 .dvc 文件无法被 Git 追踪）
+
+.dvc/cache/  # DVC缓存不提交
 
 # Docker相关
 .dockerignore
@@ -25,5 +26,4 @@ Dockerfile.bak
 # 日志与临时文件
 logs/
 tmp/
-mlruns/  :: MLflow本地日志（可选：若需共享可配置远程跟踪）
-"""
+mlruns/  # MLflow本地日志（可选：若需共享可配置远程跟踪）
