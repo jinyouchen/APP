@@ -41,22 +41,19 @@ jobs:
           python-version: "3.11"
       
       - name: 安装项目依赖
-        run: pip install -r requirements.txt  # 安装测试所需依赖（如pytest、项目本身依赖）
+        run: pip install -r requirements.txt  # 安装测试所需依赖
       
-      - name: 运行测试用例（带路径配置）
-        run: |
-          # 强制指定项目根目录到PYTHONPATH，确保Python能找到app模块
-          export PYTHONPATH=/home/runner/work/APP/APP
-          # 验证路径配置（可选，用于调试）
-          echo "当前PYTHONPATH: $PYTHONPATH"
-          # 运行测试并显示详细日志
-          pytest app/tests/test_app.py -v
+      - name: 运行测试用例（带路径配置）  # 修正缩进：与同任务其他step保持一致
+        run: |  # 修正缩进：run字段需嵌套在当前step下
+          # 强制设置项目根目录到 PYTHONPATH，确保能导入 app 模块
+          PYTHONPATH=/home/runner/work/APP/APP pytest app/tests/test_app.py -v -s
+
 
   # 任务3：构建Docker镜像（合并到staging/main时触发）
   build-docker:
     runs-on: ubuntu-latest
     needs: test  # 依赖test任务，测试通过才构建镜像
-    if: github.event_name == 'push'  # 仅在合并到staging/main时执行（排除PR阶段）
+    if: github.event_name == 'push'  # 仅在合并到staging/main时执行
     steps:
       - uses: actions/checkout@v4
       
@@ -72,7 +69,7 @@ jobs:
       
       - name: 生成环境配置文件（.env）
         run: |
-          # 从GitHub Secrets中读取对应环境的变量（需提前在仓库设置Secrets）
+          # 从GitHub Secrets中读取对应环境的变量
           echo "MODEL_PATH=${{ secrets[format('{0}_MODEL_PATH', env.ENV)] }}" >> .env
           echo "PORT=${{ secrets[format('{0}_PORT', env.ENV)] }}" >> .env
           echo "LOG_LEVEL=${{ secrets[format('{0}_LOG_LEVEL', env.ENV)] }}" >> .env
