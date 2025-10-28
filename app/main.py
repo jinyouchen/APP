@@ -2,11 +2,21 @@ from flask import Flask, request, jsonify
 import joblib
 import os
 
-app = Flask(__name__)
-# 加载MLflow保存的模型（示例路径，需替换为实际MLflow模型路径）
-MODEL_PATH = r"C:\Users\32583\Desktop\APP\data\model"
-model = joblib.load(os.path.join(MODEL_PATH, "model.pkl"))
+# 创建Flask应用实例
+app = Flask(__name__)  # 新增这一行
 
+# 明确指定模型所在目录（必须与保存路径的目录一致）
+MODEL_PATH = r"C:\Users\32583\Desktop\APP\data\model"  # 注意是目录，不是文件
+
+# 拼接完整文件路径
+model_file = os.path.join(MODEL_PATH, "model.pkl")  # 这里修正了多余的小数点，原代码有个错误的"."
+
+# 加载前先检查文件是否存在（避免报错，方便调试）
+if not os.path.exists(model_file):
+    raise FileNotFoundError(f"模型文件不存在！请检查路径：{model_file}")
+
+# 加载模型
+model = joblib.load(model_file)
 
 @app.route("/predict", methods=["POST"])
 def predict():
