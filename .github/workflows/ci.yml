@@ -12,77 +12,110 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4  # 拉取代码到CI环境
-      
-      - name: 配置Python环境
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"  # 与项目依赖的Python版本一致
-      
-      - name: 安装Lint工具依赖
-        run: pip install black==24.8.0 ruff==0.4.10  # 锁定版本，避免与本地差异
-      
-      - name: 运行Black格式检查（强制统一代码风格）
-        run: black --check .  # 仅检查不自动修复，不符合则CI失败
-      
-      - name: 运行Ruff静态分析（检查代码规范与错误）
-        run: ruff check .  # 检查未使用导入、语法错误等，不符合则CI失败
-
-  # 任务2：运行测试用例（确保功能正常）
-  test:
-    runs-on: ubuntu-latest
-    needs: lint  # 依赖lint任务，Lint通过才运行测试
-    steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4  # 拉取代码（含DVC配置文件 .dvc）
       
       - name: 配置Python环境
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       
-      - name: 安装项目依赖
-        run: pip install -r requirements.txt  # 安装测试所需依赖（如pytest、项目本身依赖）
+      - name: 安装Lint工具依赖
+        run: pip install black==24.8.0 ruff==0.4.10
       
-      - name: 运行测试用例（带路径配置）
+      - name: 运行Black格式检查
+        run: black --check .
+      
+      - name: 运行Ruff静态分析
+        run: ruff check .
+
+  # 任务2：运行测试用例（含DVC拉取模型）
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false  # 关闭Git LFS（如果不用）
+      
+      - name: 配置Python环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      # 新增步骤1：安装DVC并拉取模型数据（关键！）
+      - name: 安装DVC并拉取模型
         run: |
-          # 强制指定项目根目录到PYTHONPATH，确保Python能找到app模块
-          export PYTHONPATH=/home/runner/work/APP/APP
-          # 验证路径配置（可选，用于调试）
-          echo "当前PYTHONPATH: $PYTHONPATH"
-          # 运行测试并显示详细日志
-          pytest app/tests/test_app.py -v
+          # 安装DVC
+          pip install dvc==3.44.0
+          # 配置DVC远程仓库（从GitHub Secrets获取远程地址和凭证）
+          dvc remote add -f myremote ${{ secrets.DVC_REMOTE_URL }}
+          # 配置DVC凭证（如远程是S3/GitHub，需对应Secrets）
+          dvc remote modify myremote --local auth basic
+          dvc remote modify myremote --local user ${{ secrets.DVC_REMOTE_USER }}
+          dvc remote modify myremote --local password ${{ secrets.DVC_REMOTE_PASSWORD }}
+          # 拉取模型数据（假设模型存放在 data/model/ 目录，由DVC管理）
+          dvc pull data/model.dvc  # data/model.dvc 是DVC生成的配置文件
+      
+      # 新增步骤2：设置测试用的MODEL_PATH（指向拉取后的实际路径）
+      - name: 设置测试环境变量
+        run: |
+          # 测试阶段用拉取后的本地路径（非远程路径）
+          echo "MODEL_PATH=data/model" >> $GITHUB_ENV  # 假设dvc pull后模型在 data/model/ 下
+      
+      - name: 安装项目依赖
+        run: pip install -r requirements.txt  # 需包含 joblib、pytest、flask 等
+      
+      - name: 运行测试用例（确保PYTHONPATH和模型路径生效）
+        run: |
+          # 强制设置PYTHONPATH，同时使用测试环境变量中的MODEL_PATH
+          PYTHONPATH=/home/runner/work/APP/APP pytest app/tests/test_app.py -v -s
 
   # 任务3：构建Docker镜像（合并到staging/main时触发）
   build-docker:
     runs-on: ubuntu-latest
-    needs: test  # 依赖test任务，测试通过才构建镜像
-    if: github.event_name == 'push'  # 仅在合并到staging/main时执行（排除PR阶段）
+    needs: test
+    if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: false
+      
+      # 步骤1：拉取模型数据（构建镜像需包含模型）
+      - name: 安装DVC并拉取模型
+        run: |
+          pip install dvc==3.44.0
+          dvc remote add -f myremote ${{ secrets.DVC_REMOTE_URL }}
+          dvc remote modify myremote --local auth basic
+          dvc remote modify myremote --local user ${{ secrets.DVC_REMOTE_USER }}
+          dvc remote modify myremote --local password ${{ secrets.DVC_REMOTE_PASSWORD }}
+          dvc pull data/model.dvc
       
       - name: 设置环境变量（区分staging/prod）
         id: set-env
         run: |
-          # 根据当前分支设置环境类型（staging或prod）
           if [ "${{ github.ref }}" = "refs/heads/staging" ]; then
             echo "ENV=staging" >> $GITHUB_ENV
+            # 预发布环境用拉取后的本地路径（或远程路径，需确保容器能访问）
+            echo "MODEL_PATH=data/model" >> $GITHUB_ENV
           elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "ENV=prod" >> $GITHUB_ENV
+            # 生产环境用实际部署路径（如容器内路径，需提前配置）
+            echo "MODEL_PATH=${{ secrets.prod_MODEL_PATH }}" >> $GITHUB_ENV
           fi
       
       - name: 生成环境配置文件（.env）
         run: |
-          # 从GitHub Secrets中读取对应环境的变量（需提前在仓库设置Secrets）
-          echo "MODEL_PATH=${{ secrets[format('{0}_MODEL_PATH', env.ENV)] }}" >> .env
+          echo "MODEL_PATH=${{ env.MODEL_PATH }}" >> .env
           echo "PORT=${{ secrets[format('{0}_PORT', env.ENV)] }}" >> .env
           echo "LOG_LEVEL=${{ secrets[format('{0}_LOG_LEVEL', env.ENV)] }}" >> .env
       
       - name: 构建Docker镜像（带环境标签）
         run: |
-          # 镜像标签格式：环境-commit哈希前8位（便于追溯版本）
-          docker build -t ml-app:${{ env.ENV }}-${{ github.sha::8 }} .
+          # 用shell截取commit哈希前8位
+          SHA_SHORT=${GITHUB_SHA:0:8}
+          docker build -t ml-app:${{ env.ENV }}-$SHA_SHORT .
       
-      - name: 标记环境默认镜像（如staging/prod）
+      - name: 标记环境默认镜像
         run: |
-          # 为当前环境标记一个"latest"类标签，方便部署时引用
-          docker tag ml-app:${{ env.ENV }}-${{ github.sha::8 }} ml-app:${{ env.ENV }}
+          SHA_SHORT=${GITHUB_SHA:0:8}
+          docker tag ml-app:${{ env.ENV }}-$SHA_SHORT ml-app:${{ env.ENV }}
