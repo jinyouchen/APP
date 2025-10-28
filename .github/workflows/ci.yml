@@ -43,11 +43,10 @@ jobs:
       - name: 安装项目依赖
         run: pip install -r requirements.txt  # 安装测试所需依赖
       
-      - name: 运行测试用例（带路径配置）  # 修正缩进：与同任务其他step保持一致
-        run: |  # 修正缩进：run字段需嵌套在当前step下
+      - name: 运行测试用例（带路径配置）
+        run: |
           # 强制设置项目根目录到 PYTHONPATH，确保能导入 app 模块
           PYTHONPATH=/home/runner/work/APP/APP pytest app/tests/test_app.py -v -s
-
 
   # 任务3：构建Docker镜像（合并到staging/main时触发）
   build-docker:
@@ -76,10 +75,10 @@ jobs:
       
       - name: 构建Docker镜像（带环境标签）
         run: |
-          # 镜像标签格式：环境-commit哈希前8位（便于追溯版本）
-          docker build -t ml-app:${{ env.ENV }}-${{ github.sha::8 }} .
+          # 修正：用 github.sha[:8] 获取commit哈希前8位（正确切片语法）
+          docker build -t ml-app:${{ env.ENV }}-${{ github.sha[:8] }} .
       
       - name: 标记环境默认镜像（如staging/prod）
         run: |
-          # 为当前环境标记一个"latest"类标签，方便部署时引用
-          docker tag ml-app:${{ env.ENV }}-${{ github.sha::8 }} ml-app:${{ env.ENV }}
+          # 修正：同样使用 github.sha[:8]
+          docker tag ml-app:${{ env.ENV }}-${{ github.sha[:8] }} ml-app:${{ env.ENV }}
