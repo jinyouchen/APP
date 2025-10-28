@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/32583/Desktop/APP/mlruns/954483530524387789/84c037efcb58410b82cd18e877492b17/artifacts
+end_time: 1761620182220
+entry_point_name: ''
+experiment_id: '954483530524387789'
+lifecycle_stage: active
+run_id: 84c037efcb58410b82cd18e877492b17
+run_name: loud-jay-114
+run_uuid: 84c037efcb58410b82cd18e877492b17
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761620176965
+status: 3
+tags: []
+user_id: '32583'

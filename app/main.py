@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 # 加载MLflow保存的模型（示例路径，需替换为实际MLflow模型路径）
-MODEL_PATH = "mlruns/<实验ID>/<Run ID>/artifacts/model"
+MODEL_PATH = r"C:\Users\32583\Desktop\APP\data\model"
 model = joblib.load(os.path.join(MODEL_PATH, "model.pkl"))
 
 
