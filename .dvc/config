@@ -3,4 +3,4 @@
 ['remote "my_local_remote"']
     url = ../dvc_data
 ['remote "myremote"']
-    url = D:\dvc-local-remote
+    url = ../git@github.com:jinyouchen/dvc-lfs-remote.git
