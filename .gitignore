@@ -8,9 +8,6 @@ __pycache__/
 .ipynb_checkpoints/
 
 # 数据相关（DVC管理，不提交原始数据）
-data/
-!data.dvc  :: 保留DVC指针文件
-.dvc/cache/  :: DVC缓存不提交
 
 # Docker相关
 .dockerignore

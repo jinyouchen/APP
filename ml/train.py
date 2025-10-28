@@ -1,25 +1,35 @@
+# 依赖安装提示：
+# pip install mlflow scikit-learn pandas gitpython
+
 import mlflow
 import mlflow.sklearn
 import pandas as pd
-from sklearn.linear_model import LogisticRegression  # 示例模型（需训练）
+import pickle  # 用于保存模型
+import os  # 用于创建目录
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 import git
+from git.exc import InvalidGitRepositoryError
 
-# 1. 配置MLflow（符合1-57要求）
+
+# 1. 配置MLflow
 mlflow.set_tracking_uri("file:./mlruns")
-mlflow.set_experiment("user_classification_model_experiments")  # 如“用户分类模型实验”
+mlflow.set_experiment("user_classification_model_experiments")
 
 
-# 2. 获取代码版本（Git commit SHA，符合1-60要求）
+# 2. 获取代码版本（带异常处理）
 def get_git_commit():
-    repo = git.Repo(search_parent_directories=True)
-    return repo.head.object.hexsha
+    try:
+        repo = git.Repo(search_parent_directories=True)
+        return repo.head.object.hexsha
+    except InvalidGitRepositoryError:
+        print("警告：当前目录不是Git仓库，无法获取commit版本")
+        return "unknown_commit"
 
 
-# 3. 加载并预处理数据（支撑模型训练，符合1-5）
+# 3. 加载并预处理数据
 def load_data():
-    # 示例：用本地数据（跳过DVC，暂用简单数据集）
     data = pd.DataFrame(
         {
             "feature1": [1, 2, 3, 4, 5, 6],
@@ -32,35 +42,58 @@ def load_data():
     return train_test_split(X, y, test_size=0.3, random_state=42)
 
 
-# 4. 训练模型（支持2个实验：基线+改进，符合1-71要求）
+# 4. 训练模型并保存到指定路径
 def train_model(penalty="l2", C=1.0):
     X_train, X_test, y_train, y_test = load_data()
     git_commit = get_git_commit()
 
-    # 启动MLflow Run（符合1-59至1-64要求）
-    with mlflow.start_run():
-        # 记录代码版本（符合1-60）
+    # 定义模型保存路径（按需求指定）
+    model_save_path = r"C:\Users\32583\Desktop\APP\data\model\model.pkl"
+    # 创建保存目录（如果不存在）
+    os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
+
+    with mlflow.start_run() as run:
+        # 记录标签、超参数
         mlflow.set_tag("git_commit", git_commit)
-        # 记录超参数（符合1-62）
+        mlflow.set_tag("experiment_type", "baseline" if C == 1.0 else "improved")
         mlflow.log_param("model", "LogisticRegression")
         mlflow.log_param("penalty", penalty)
         mlflow.log_param("C", C)
-        # 训练模型（符合1-5“训练/微调”要求）
-        model = LogisticRegression(penalty=penalty, C=C)
+
+        # 训练模型
+        model = LogisticRegression(penalty=penalty, C=C, random_state=42)
         model.fit(X_train, y_train)
-        # 记录指标（符合1-63）
+
+        # 评估指标
         y_pred = model.predict(X_test)
-        mlflow.log_metric("test_accuracy", accuracy_score(y_test, y_pred))
-        mlflow.log_metric("test_f1", f1_score(y_test, y_pred))
-        # 记录模型Artifact（符合1-64）
+        accuracy = accuracy_score(y_test, y_pred)
+        f1 = f1_score(y_test, y_pred)
+        mlflow.log_metric("test_accuracy", accuracy)
+        mlflow.log_metric("test_f1", f1)
+
+        # 保存模型到MLflow（Artifact）
         mlflow.sklearn.log_model(model, "model")
-        print(f"Run完成：Accuracy={accuracy_score(y_test, y_pred):.2f}")
+
+        # 保存模型到指定本地路径（核心修改）
+        with open(model_save_path, "wb") as f:
+            pickle.dump(model, f)
+        print(f"模型已保存到本地路径：{model_save_path}")
+
+        # 打印运行信息
+        print(
+            f"Run完成：Run ID = {run.info.run_id}，Accuracy = {accuracy:.2f}，F1 = {f1:.2f}"
+        )
         return model
 
 
-# 5. 运行2个实验（基线+改进，符合1-71至1-73要求）
+# 5. 运行实验
 if __name__ == "__main__":
-    print("实验1：基线模型（默认超参数）")
-    train_model(penalty="l2", C=1.0)  # 基线模型
-    print("实验2：改进模型（调优超参数）")
-    train_model(penalty="l2", C=0.5)  # 改进模型（调整正则化强度）
+    print("实验1：基线模型（默认超参数 C=1.0）")
+    train_model(penalty="l2", C=1.0)
+    print("\n实验2：改进模型（调优超参数 C=0.5）")
+    train_model(penalty="l2", C=0.5)
+
+    print("\n=== 实验结束 ===")
+    print("可通过以下命令启动MLflow UI查看详细结果：")
+    print("mlflow ui --backend-store-uri ./mlruns")
+    print("访问地址：http://localhost:5000")
