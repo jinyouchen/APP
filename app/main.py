@@ -7,6 +7,7 @@ app = Flask(__name__)
 MODEL_PATH = "mlruns/<实验ID>/<Run ID>/artifacts/model"
 model = joblib.load(os.path.join(MODEL_PATH, "model.pkl"))
 
+
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
@@ -20,6 +21,7 @@ def predict():
         return jsonify({"status": "error", "msg": "缺少feature1/feature2"}), 400
     except Exception as e:
         return jsonify({"status": "error", "msg": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
