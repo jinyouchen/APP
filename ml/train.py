@@ -10,22 +10,27 @@ import git
 mlflow.set_tracking_uri("file:./mlruns")
 mlflow.set_experiment("user_classification_model_experiments")  # 如“用户分类模型实验”
 
+
 # 2. 获取代码版本（Git commit SHA，符合1-60要求）
 def get_git_commit():
     repo = git.Repo(search_parent_directories=True)
     return repo.head.object.hexsha
 
+
 # 3. 加载并预处理数据（支撑模型训练，符合1-5）
 def load_data():
     # 示例：用本地数据（跳过DVC，暂用简单数据集）
-    data = pd.DataFrame({
-        "feature1": [1,2,3,4,5,6],
-        "feature2": [10,20,30,40,50,60],
-        "target": [0,0,0,1,1,1]
-    })
+    data = pd.DataFrame(
+        {
+            "feature1": [1, 2, 3, 4, 5, 6],
+            "feature2": [10, 20, 30, 40, 50, 60],
+            "target": [0, 0, 0, 1, 1, 1],
+        }
+    )
     X = data[["feature1", "feature2"]]
     y = data["target"]
     return train_test_split(X, y, test_size=0.3, random_state=42)
+
 
 # 4. 训练模型（支持2个实验：基线+改进，符合1-71要求）
 def train_model(penalty="l2", C=1.0):
@@ -51,6 +56,7 @@ def train_model(penalty="l2", C=1.0):
         mlflow.sklearn.log_model(model, "model")
         print(f"Run完成：Accuracy={accuracy_score(y_test, y_pred):.2f}")
         return model
+
 
 # 5. 运行2个实验（基线+改进，符合1-71至1-73要求）
 if __name__ == "__main__":
