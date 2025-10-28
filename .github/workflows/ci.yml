@@ -42,25 +42,25 @@ jobs:
         with:
           python-version: "3.11"
       
-      # 新增步骤1：安装DVC并拉取模型数据（关键！）
+      # 修正1：DVC远程配置语法错误（-f改为-d，拉取路径匹配实际.dvc文件）
       - name: 安装DVC并拉取模型
         run: |
           # 安装DVC
           pip install dvc==3.44.0
-          # 配置DVC远程仓库（从GitHub Secrets获取远程地址和凭证）
-          dvc remote add -f myremote ${{ secrets.DVC_REMOTE_URL }}
-          # 配置DVC凭证（如远程是S3/GitHub，需对应Secrets）
+          # 配置DVC远程仓库（-d设置为默认远程，替代错误的-f）
+          dvc remote add -d myremote ${{ secrets.DVC_REMOTE_URL }}
+          # 配置DVC凭证
           dvc remote modify myremote --local auth basic
           dvc remote modify myremote --local user ${{ secrets.DVC_REMOTE_USER }}
           dvc remote modify myremote --local password ${{ secrets.DVC_REMOTE_PASSWORD }}
-          # 拉取模型数据（假设模型存放在 data/model/ 目录，由DVC管理）
-          dvc pull data/model.dvc  # data/model.dvc 是DVC生成的配置文件
+          # 拉取模型（路径改为实际生成的.dvc文件：data/model/model.pkl.dvc）
+          dvc pull data/model/model.pkl.dvc
       
       # 新增步骤2：设置测试用的MODEL_PATH（指向拉取后的实际路径）
       - name: 设置测试环境变量
         run: |
-          # 测试阶段用拉取后的本地路径（非远程路径）
-          echo "MODEL_PATH=data/model" >> $GITHUB_ENV  # 假设dvc pull后模型在 data/model/ 下
+          # 测试阶段用拉取后的本地路径（与dvc pull路径一致）
+          echo "MODEL_PATH=data/model" >> $GITHUB_ENV
       
       - name: 安装项目依赖
         run: pip install -r requirements.txt  # 需包含 joblib、pytest、flask 等
@@ -84,30 +84,32 @@ jobs:
       - name: 安装DVC并拉取模型
         run: |
           pip install dvc==3.44.0
-          dvc remote add -f myremote ${{ secrets.DVC_REMOTE_URL }}
+          dvc remote add -d myremote ${{ secrets.DVC_REMOTE_URL }}
           dvc remote modify myremote --local auth basic
           dvc remote modify myremote --local user ${{ secrets.DVC_REMOTE_USER }}
           dvc remote modify myremote --local password ${{ secrets.DVC_REMOTE_PASSWORD }}
-          dvc pull data/model.dvc
+          dvc pull data/model/model.pkl.dvc  # 与test任务路径保持一致
       
       - name: 设置环境变量（区分staging/prod）
         id: set-env
         run: |
           if [ "${{ github.ref }}" = "refs/heads/staging" ]; then
             echo "ENV=staging" >> $GITHUB_ENV
-            # 预发布环境用拉取后的本地路径（或远程路径，需确保容器能访问）
+            # 预发布环境用拉取后的本地路径
             echo "MODEL_PATH=data/model" >> $GITHUB_ENV
           elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "ENV=prod" >> $GITHUB_ENV
-            # 生产环境用实际部署路径（如容器内路径，需提前配置）
-            echo "MODEL_PATH=${{ secrets.prod_MODEL_PATH }}" >> $GITHUB_ENV
+            # 修正2：Secrets名称匹配（若实际为大写PROD_MODEL_PATH，需同步修改）
+            echo "MODEL_PATH=${{ secrets.PROD_MODEL_PATH }}" >> $GITHUB_ENV
           fi
       
       - name: 生成环境配置文件（.env）
         run: |
           echo "MODEL_PATH=${{ env.MODEL_PATH }}" >> .env
+          # 修正3：端口Secrets引用（与实际Secrets名称匹配，若为STAGING_PORT/PROD_PORT）
           echo "PORT=${{ secrets[format('{0}_PORT', env.ENV)] }}" >> .env
-          echo "LOG_LEVEL=${{ secrets[format('{0}_LOG_LEVEL', env.ENV)] }}" >> .env
+          # 修正4：移除未配置的LOG_LEVEL（若未设置对应Secrets，避免报错）
+          # echo "LOG_LEVEL=${{ secrets[format('{0}_LOG_LEVEL', env.ENV)] }}" >> .env
       
       - name: 构建Docker镜像（带环境标签）
         run: |
