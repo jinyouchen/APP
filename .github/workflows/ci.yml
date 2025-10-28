@@ -75,10 +75,12 @@ jobs:
       
       - name: 构建Docker镜像（带环境标签）
         run: |
-          # 修正：用substring函数截取commit哈希前8位（GitHub Actions原生语法）
-          docker build -t ml-app:${{ env.ENV }}-${{ substring(github.sha, 0, 8) }} .
+          # 用shell语法截取commit哈希前8位（GITHUB_SHA是内置环境变量，对应github.sha）
+          SHA_SHORT=${GITHUB_SHA:0:8}
+          docker build -t ml-app:${{ env.ENV }}-$SHA_SHORT .
       
       - name: 标记环境默认镜像（如staging/prod）
         run: |
-          # 修正：同样使用substring函数
-          docker tag ml-app:${{ env.ENV }}-${{ substring(github.sha, 0, 8) }} ml-app:${{ env.ENV }}
+          # 同样用shell截取哈希前8位
+          SHA_SHORT=${GITHUB_SHA:0:8}
+          docker tag ml-app:${{ env.ENV }}-$SHA_SHORT ml-app:${{ env.ENV }}
